@@ -1,35 +1,59 @@
 (function () {
     "use strict";
 
-    var removeAllCookies = function () {
-
-        if (!chrome.cookies) {
-            chrome.cookies = chrome.experimental.cookies;
-        }
-
-        var removeCookie = function (cookie) {
-            var url = "http" + (cookie.secure ? "s" : "") + "://" + cookie.domain + cookie.path;
-            chrome.cookies.remove({"url": url, "name": cookie.name});
-        };
-
-        chrome.cookies.getAll({}, function (all_cookies) {
-            var count = all_cookies.length;
-            for (var i = 0; i < count; i++) {
-                removeCookie(all_cookies[i]);
+    var removeAllCookies = function (origin) {
+        return new Promise((resolve, reject) => {
+        
+            if (!chrome.cookies) {
+                chrome.cookies = chrome.experimental.cookies;
             }
-        });
 
-        return "COOKIES_CLEARED_VIA_EXTENSION_API";
+            var checkUrl = function (url, origin) {
+                if (!origin) return true
+                return url.contains(origin)
+            };
+
+            var removeCookie = function (cookie) {
+                var url = "http" + (cookie.secure ? "s" : "") + "://" + cookie.domain + cookie.path;
+                chrome.cookies.remove({"url": url, "name": cookie.name});
+            };
+
+            let deleted=0;
+            let count=0;
+            chrome.cookies.getAllCookieStores(function (cookieStores) {
+            
+                chrome.cookies.getAll({}, function (all_cookies) {
+                    count = all_cookies.length;
+                    console.log(`${count} cookies`)
+                    
+                    for (var i = 0; i < count; i++) {
+                        let cookie = all_cookies[i]
+                        var url = "http" + (cookie.secure ? "s" : "") + "://" + cookie.domain + cookie.path;
+                        if (checkUrl(url, origin)){
+                            removeCookie(cookie);
+                            ++deleted;
+                        }
+                    }
+                    resolve(`${deleted} deleted / ${count} cookies`)
+                });
+            });
+        })
     };
-
-    chrome.browserAction.onClicked.addListener(function (tab) {
-        console.log(removeAllCookies());
-    });
+    
+    chrome.action.onClicked.addListener(tab => { 
+        chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
+            let url = tabs[0].url;
+            removeAllCookies(url).then(r => {
+                console.log(r)
+            })
+        });
+     });
 
     chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         if (request === "CLEAR_COOKIES_EXTENSION_API") {
-            sendResponse(removeAllCookies());
-            sendResponse(removeAllCookies());
+            removeAllCookies(sender.origin).then(r => {
+                sendResponse(r)
+            })
         }
     });
 
