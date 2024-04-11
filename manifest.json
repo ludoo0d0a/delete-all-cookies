@@ -4,6 +4,7 @@
     "description": "Delete All Cookies From JavaScript",
     "version": "2.0",
     "permissions": [ "cookies", "tabs", "background" ],
+    "host_permissions": ["<all_urls>"],
     "icons": { "48": "icon_cookie48.png", "128": "icon_cookie128.png" },
     "action": {
         "default_icon": "icon_cookie.png"

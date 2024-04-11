@@ -1,16 +1,17 @@
 (function () {
     "use strict";
 
-    var removeAllCookies = function (origin) {
+    var removeAllCookies = function (filters) {
         return new Promise((resolve, reject) => {
-        
+            filters = filters || {}
+
             if (!chrome.cookies) {
                 chrome.cookies = chrome.experimental.cookies;
             }
 
             var checkUrl = function (url, origin) {
                 if (!origin) return true
-                return url.contains(origin)
+                return url.includes(origin)
             };
 
             var removeCookie = function (cookie) {
@@ -18,24 +19,17 @@
                 chrome.cookies.remove({"url": url, "name": cookie.name});
             };
 
-            let deleted=0;
-            let count=0;
-            chrome.cookies.getAllCookieStores(function (cookieStores) {
-            
-                chrome.cookies.getAll({}, function (all_cookies) {
-                    count = all_cookies.length;
-                    console.log(`${count} cookies`)
-                    
-                    for (var i = 0; i < count; i++) {
-                        let cookie = all_cookies[i]
-                        var url = "http" + (cookie.secure ? "s" : "") + "://" + cookie.domain + cookie.path;
-                        if (checkUrl(url, origin)){
-                            removeCookie(cookie);
-                            ++deleted;
-                        }
-                    }
-                    resolve(`${deleted} deleted / ${count} cookies`)
-                });
+            let deleted=0, count=0;
+            chrome.cookies.getAll(filters, function (all_cookies) {
+                count = all_cookies.length;
+                console.log(`${count} cookies`)
+                
+                for (var i = 0; i < count; i++) {
+                    let cookie = all_cookies[i]
+                    removeCookie(cookie);
+                    ++deleted;
+                }
+                resolve(`${deleted} deleted / ${count} cookies`)
             });
         })
     };
@@ -43,7 +37,7 @@
     chrome.action.onClicked.addListener(tab => { 
         chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
             let url = tabs[0].url;
-            removeAllCookies(url).then(r => {
+            removeAllCookies({url:url}).then(r => {
                 console.log(r)
             })
         });
@@ -51,7 +45,8 @@
 
     chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         if (request === "CLEAR_COOKIES_EXTENSION_API") {
-            removeAllCookies(sender.origin).then(r => {
+            //origin "https://social-sb.com"
+            removeAllCookies({url:sender.origin}).then(r => {
                 sendResponse(r)
             })
         }
